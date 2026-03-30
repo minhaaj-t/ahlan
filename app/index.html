@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ahlan Rawabi — Redirect</title>
+  <script>
+    (function () {
+      var ua = navigator.userAgent;
+      if (/android/i.test(ua)) {
+        window.location.replace(
+          "https://play.google.com/store/apps/details?id=com.nipuna.loyalty&hl=en"
+        );
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        window.location.replace(
+          "https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046"
+        );
+      } else {
+        window.location.replace("https://rawabihypermarket.com/ahlan_reward");
+      }
+    })();
+  </script>
+</head>
+<body>
+  <noscript>
+    <p>
+      <a href="https://rawabihypermarket.com/ahlan_reward">Continue to Ahlan Rewards</a>
+    </p>
+  </noscript>
+</body>
+</html>
