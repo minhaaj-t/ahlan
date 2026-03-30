@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Opening Rawabi Shopping…</title>
+  <!-- Default store IDs; JS replaces app-argument / android-app href after ?url= -->
+  <meta
+    name="apple-itunes-app"
+    content="app-id=6480009147, app-argument=https://rawabihypermarket.com/Zelo-Fleece-Blanket-200X230-Sy2/25512"
+  />
+</head>
+<body style="margin: 0; min-height: 100vh">
+  <p
+    class="loading"
+    style="
+      font-family: system-ui, sans-serif;
+      padding: 1rem;
+      color: #333;
+      margin: 0;
+    "
+  >
+    Opening product…
+  </p>
+  <noscript>
+    <p>
+      <a href="https://rawabihypermarket.com/Zelo-Fleece-Blanket-200X230-Sy2/25512"
+        >Continue to product</a
+      >
+      ·
+      <a href="https://play.google.com/store/apps/details?id=com.app.rawabi">Google Play</a>
+      ·
+      <a href="https://apps.apple.com/qa/app/rawabi-shopping/id6480009147">App Store</a>
+    </p>
+  </noscript>
+  <script>
+    /**
+     * Bridge page → Flutter deep links (app_links / uni_links / go_router)
+     *
+     * Android Chrome often blocks intent: / app opens from JS without a user gesture
+     * (including setTimeout). We still try an immediate navigation, and we add a
+     * full-viewport &lt;a href&gt; so the first tap reliably opens the app.
+     *
+     * iOS: Universal Links via https://rawabihypermarket.com/... first; custom schemes
+     * as fallback if still on this page.
+     */
+    (function () {
+      var BRIDGE_HOST = window.location.hostname;
+
+      var CONFIG = {
+        productWebUrl:
+          "https://rawabihypermarket.com/Zelo-Fleece-Blanket-200X230-Sy2/25512",
+        productId: "25512",
+        androidPackage: "com.app.rawabi",
+        iosAppStoreId: "6480009147",
+        playStoreUrl:
+          "https://play.google.com/store/apps/details?id=com.app.rawabi",
+        appStoreUrl:
+          "https://apps.apple.com/qa/app/rawabi-shopping/id6480009147",
+        customSchemeUrls: [],
+        androidIntentFallback: "web",
+        iosOpenAppStoreIfStillHere: true,
+        iosAppStoreDelayMs: 3200,
+        iosCustomSchemeDelayMs: 1800,
+      };
+
+      function extractProductIdFromPath(webUrl) {
+        try {
+          var p = new URL(webUrl).pathname.replace(/\/+$/, "");
+          var last = p.split("/").pop();
+          return last && /^\d+$/.test(last) ? last : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function buildFlutterDeepLinkCandidates(productId, webUrl) {
+        var id = String(productId);
+        var base = "https://rawabihypermarket.com";
+        return [
+          webUrl,
+          base + "/product/" + id,
+          "rawabi://product/" + id,
+          "com.app.rawabi://product/" + id,
+          "rawabihypermarket://product/" + id,
+          "rawabi://open?productId=" + encodeURIComponent(id),
+          "com.app.rawabi://open?productId=" + encodeURIComponent(id),
+        ];
+      }
+
+      /** Decode ?url= safely (handles double-encoding from some share flows). */
+      function decodeUrlParam(raw) {
+        if (!raw) return raw;
+        var s = raw;
+        for (var i = 0; i < 3; i++) {
+          try {
+            var next = decodeURIComponent(s.replace(/\+/g, " "));
+            if (next === s) break;
+            s = next;
+          } catch (e) {
+            break;
+          }
+        }
+        return s;
+      }
+
+      function parseOverrides() {
+        var q = new URLSearchParams(window.location.search);
+        var u = q.get("url") || q.get("u");
+        if (u) {
+          CONFIG.productWebUrl = decodeUrlParam(u);
+        }
+        var id = q.get("id") || q.get("productId");
+        if (!id) id = extractProductIdFromPath(CONFIG.productWebUrl);
+        if (id) {
+          CONFIG.productId = id;
+        }
+        CONFIG.customSchemeUrls = buildFlutterDeepLinkCandidates(
+          CONFIG.productId,
+          CONFIG.productWebUrl
+        );
+        if (q.get("androidFallback") === "store") {
+          CONFIG.androidIntentFallback = "store";
+        }
+      }
+
+      function injectHeadMeta() {
+        var apple = document.querySelector('meta[name="apple-itunes-app"]');
+        var appleContent =
+          "app-id=" +
+          CONFIG.iosAppStoreId +
+          ", app-argument=" +
+          CONFIG.productWebUrl;
+        if (apple) {
+          apple.setAttribute("content", appleContent);
+        } else {
+          var m = document.createElement("meta");
+          m.name = "apple-itunes-app";
+          m.content = appleContent;
+          document.head.appendChild(m);
+        }
+
+        var parsed;
+        try {
+          parsed = new URL(CONFIG.productWebUrl);
+        } catch (e) {
+          return;
+        }
+        var hostPath =
+          parsed.hostname +
+          (parsed.pathname || "") +
+          (parsed.search || "");
+        var androidAppHref =
+          "android-app://" +
+          CONFIG.androidPackage +
+          "/https/" +
+          hostPath;
+        var existing = document.querySelector(
+          'link[rel="alternate"][href^="android-app://"]'
+        );
+        if (existing) {
+          existing.setAttribute("href", androidAppHref);
+        } else {
+          var link = document.createElement("link");
+          link.rel = "alternate";
+          link.href = androidAppHref;
+          document.head.appendChild(link);
+        }
+      }
+
+      function isAndroid(ua) {
+        return /android/i.test(ua);
+      }
+
+      function isIOS(ua) {
+        return (
+          /iPhone|iPad|iPod/i.test(ua) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+        );
+      }
+
+      function stillOnBridgePage() {
+        return window.location.hostname === BRIDGE_HOST;
+      }
+
+      function androidFallbackEncoded() {
+        var u =
+          CONFIG.androidIntentFallback === "store"
+            ? CONFIG.playStoreUrl
+            : CONFIG.productWebUrl;
+        return encodeURIComponent(u);
+      }
+
+      /**
+       * Build VIEW intent for https App Links. Path uses the same form as the web URL
+       * (no per-segment re-encoding) so verified links match the manifest.
+       */
+      function buildAndroidIntentHttps(webUrl, pkg) {
+        var parsed;
+        try {
+          parsed = new URL(webUrl);
+        } catch (e) {
+          return null;
+        }
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+          return null;
+        }
+        var schemeName = parsed.protocol === "https:" ? "https" : "http";
+        var host = parsed.host;
+        var pathAndQuery = (parsed.pathname || "/") + (parsed.search || "");
+        var intentPath = "intent://" + host + pathAndQuery;
+        return (
+          intentPath +
+          "#Intent;scheme=" +
+          schemeName +
+          ";package=" +
+          pkg +
+          ";S.browser_fallback_url=" +
+          androidFallbackEncoded() +
+          ";end"
+        );
+      }
+
+      function buildAndroidIntentCustomScheme(productId, pkg, schemeName) {
+        schemeName = schemeName || "rawabi";
+        return (
+          "intent://product/" +
+          encodeURIComponent(productId) +
+          "#Intent;scheme=" +
+          schemeName +
+          ";package=" +
+          pkg +
+          ";S.browser_fallback_url=" +
+          androidFallbackEncoded() +
+          ";end"
+        );
+      }
+
+      function tryIframe(url) {
+        var el = document.createElement("iframe");
+        el.style.display = "none";
+        el.style.width = "0";
+        el.style.height = "0";
+        el.setAttribute("src", url);
+        document.documentElement.appendChild(el);
+        setTimeout(function () {
+          try {
+            el.remove();
+          } catch (e) {}
+        }, 2000);
+      }
+
+      function openIOSDeepLinks() {
+        var schemes = CONFIG.customSchemeUrls;
+        for (var i = 0; i < schemes.length; i++) {
+          if (schemes[i].indexOf("https://") === 0) continue;
+          tryIframe(schemes[i]);
+        }
+        var firstCustom = schemes.filter(function (u) {
+          return u.indexOf("https://") !== 0;
+        })[0];
+        if (firstCustom) {
+          window.location.href = firstCustom;
+        }
+      }
+
+      function installTapToOpen(href, label) {
+        var loading = document.querySelector(".loading");
+        if (loading) loading.style.display = "none";
+        var a = document.createElement("a");
+        a.href = href;
+        a.setAttribute(
+          "style",
+          [
+            "display:block",
+            "box-sizing:border-box",
+            "min-height:100vh",
+            "padding:1.25rem",
+            "font-family:system-ui,sans-serif",
+            "font-size:1rem",
+            "color:#0b57d0",
+            "text-decoration:underline",
+            "align-content:center",
+          ].join(";")
+        );
+        a.textContent =
+          label ||
+          "Tap here to open in the Rawabi app (required on some Android browsers)";
+        document.body.appendChild(a);
+      }
+
+      function scheduleIOS() {
+        var store = CONFIG.appStoreUrl;
+        var productUrl = CONFIG.productWebUrl;
+        var pageHidden = false;
+        document.addEventListener(
+          "visibilitychange",
+          function () {
+            if (document.hidden) pageHidden = true;
+          },
+          { once: true }
+        );
+
+        installTapToOpen(productUrl, "Tap to open product (opens app if installed)");
+
+        window.location.replace(productUrl);
+
+        setTimeout(function () {
+          if (!stillOnBridgePage() || pageHidden) return;
+          openIOSDeepLinks();
+        }, CONFIG.iosCustomSchemeDelayMs);
+
+        if (CONFIG.iosOpenAppStoreIfStillHere) {
+          setTimeout(function () {
+            if (!stillOnBridgePage() || pageHidden) return;
+            window.location.replace(store);
+          }, CONFIG.iosAppStoreDelayMs);
+        }
+      }
+
+      function scheduleAndroid(intentHttps, intentRawabi) {
+        var primary = intentHttps || CONFIG.productWebUrl;
+
+        installTapToOpen(
+          primary,
+          "Tap to open in the Rawabi app (Chrome may block automatic open)"
+        );
+
+        tryIframe(intentRawabi);
+
+        window.location.replace(primary);
+      }
+
+      parseOverrides();
+      injectHeadMeta();
+
+      var ua = navigator.userAgent || "";
+
+      if (!isAndroid(ua) && !isIOS(ua)) {
+        window.location.replace(CONFIG.productWebUrl);
+        return;
+      }
+
+      if (isAndroid(ua)) {
+        var intentHttps = buildAndroidIntentHttps(
+          CONFIG.productWebUrl,
+          CONFIG.androidPackage
+        );
+        var intentRawabi = buildAndroidIntentCustomScheme(
+          CONFIG.productId,
+          CONFIG.androidPackage,
+          "rawabi"
+        );
+        scheduleAndroid(intentHttps, intentRawabi);
+        return;
+      }
+
+      if (isIOS(ua)) {
+        scheduleIOS();
+      }
+    })();
+  </script>
+</body>
+</html>
