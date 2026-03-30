@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Opening Rawabi Shopping…</title>
-  <!-- Default store IDs; JS replaces app-argument / android-app href after ?url= -->
+  <!-- app-argument updated to match ?url= so Smart App Banner passes the product link -->
   <meta
     name="apple-itunes-app"
     content="app-id=6480009147, app-argument=https://rawabihypermarket.com/Zelo-Fleece-Blanket-200X230-Sy2/25512"
   />
 </head>
-<body style="margin: 0; min-height: 100vh">
+<body style="margin: 0; min-height: 100vh; background: #fafafa">
   <p
     class="loading"
     style="
@@ -35,14 +35,14 @@
   </noscript>
   <script>
     /**
-     * Bridge page → Flutter deep links (app_links / uni_links / go_router)
+     * Bridge → Flutter (app_links / uni_links / go_router).
      *
-     * Android Chrome often blocks intent: / app opens from JS without a user gesture
-     * (including setTimeout). We still try an immediate navigation, and we add a
-     * full-viewport &lt;a href&gt; so the first tap reliably opens the app.
-     *
-     * iOS: Universal Links via https://rawabihypermarket.com/... first; custom schemes
-     * as fallback if still on this page.
+     * iOS notes:
+     * - Universal Links only work in Safari (or when the system hands off the URL).
+     *   In-app browsers / in-app WebViews often block handoff; auto-redirect may stay
+     *   on this page — we surface explicit HTTPS + custom-scheme links.
+     * - Auto-opening the App Store loses product context; we never replace() to the
+     *   store alone. Store is a separate tap (itms-apps + https fallback).
      */
     (function () {
       var BRIDGE_HOST = window.location.hostname;
@@ -59,9 +59,9 @@
           "https://apps.apple.com/qa/app/rawabi-shopping/id6480009147",
         customSchemeUrls: [],
         androidIntentFallback: "web",
-        iosOpenAppStoreIfStillHere: true,
-        iosAppStoreDelayMs: 3200,
-        iosCustomSchemeDelayMs: 1800,
+        iosCustomSchemeDelayMs: 1400,
+        iosHttpsAltDelayMs: 900,
+        iosRecoveryUiDelayMs: 2600,
       };
 
       function extractProductIdFromPath(webUrl) {
@@ -88,7 +88,6 @@
         ];
       }
 
-      /** Decode ?url= safely (handles double-encoding from some share flows). */
       function decodeUrlParam(raw) {
         if (!raw) return raw;
         var s = raw;
@@ -179,6 +178,18 @@
         );
       }
 
+      /** Instagram / FB / LINE / WebView shells often block Universal Link handoff. */
+      function isIOSInAppBrowser(ua) {
+        if (!isIOS(ua)) return false;
+        return (
+          /(FBAN|FBAV|Instagram|Line\/|Twitter|Snapchat|TikTok|MicroMessenger|Pinterest)/i.test(
+            ua
+          ) ||
+          /\bwv\b/i.test(ua) ||
+          /(WKWebView)/i.test(ua)
+        );
+      }
+
       function stillOnBridgePage() {
         return window.location.hostname === BRIDGE_HOST;
       }
@@ -191,10 +202,6 @@
         return encodeURIComponent(u);
       }
 
-      /**
-       * Build VIEW intent for https App Links. Path uses the same form as the web URL
-       * (no per-segment re-encoding) so verified links match the manifest.
-       */
       function buildAndroidIntentHttps(webUrl, pkg) {
         var parsed;
         try {
@@ -250,47 +257,193 @@
         }, 2000);
       }
 
-      function openIOSDeepLinks() {
-        var schemes = CONFIG.customSchemeUrls;
+      function httpsUrlsFromCandidates() {
+        return CONFIG.customSchemeUrls.filter(function (u) {
+          return u.indexOf("https://") === 0;
+        });
+      }
+
+      function customSchemeUrlsFromCandidates() {
+        return CONFIG.customSchemeUrls.filter(function (u) {
+          return u.indexOf("https://") !== 0;
+        });
+      }
+
+      /** Fire custom schemes (iframe + last via location). */
+      function openIOSCustomSchemes() {
+        var schemes = customSchemeUrlsFromCandidates();
         for (var i = 0; i < schemes.length; i++) {
-          if (schemes[i].indexOf("https://") === 0) continue;
           tryIframe(schemes[i]);
         }
-        var firstCustom = schemes.filter(function (u) {
-          return u.indexOf("https://") !== 0;
-        })[0];
-        if (firstCustom) {
-          window.location.href = firstCustom;
+        if (schemes.length) {
+          window.location.href = schemes[schemes.length - 1];
         }
+      }
+
+      /** Second HTTPS shape (e.g. /product/123) if different from primary — helps routing mismatches. */
+      function tryAlternateHttpsUrl() {
+        var list = httpsUrlsFromCandidates();
+        if (list.length < 2) return;
+        if (list[0] === list[1]) return;
+        try {
+          window.location.replace(list[1]);
+        } catch (e) {}
       }
 
       function installTapToOpen(href, label) {
         var loading = document.querySelector(".loading");
         if (loading) loading.style.display = "none";
         var a = document.createElement("a");
+        a.id = "bridge-tap-primary";
         a.href = href;
         a.setAttribute(
           "style",
           [
             "display:block",
             "box-sizing:border-box",
-            "min-height:100vh",
+            "min-height:60vh",
             "padding:1.25rem",
             "font-family:system-ui,sans-serif",
             "font-size:1rem",
             "color:#0b57d0",
             "text-decoration:underline",
-            "align-content:center",
           ].join(";")
         );
-        a.textContent =
-          label ||
-          "Tap here to open in the Rawabi app (required on some Android browsers)";
+        a.textContent = label;
         document.body.appendChild(a);
       }
 
-      function scheduleIOS() {
-        var store = CONFIG.appStoreUrl;
+      function itmsAppStoreUrl() {
+        return (
+          "itms-apps://apps.apple.com/app/id" + encodeURIComponent(CONFIG.iosAppStoreId)
+        );
+      }
+
+      /**
+       * If still on bridge: show product + app deep links + App Store (no auto-redirect to store).
+       * Covers: in-app WebView, blocked redirects, user returned from app without navigation.
+       */
+      function showIOSRecoveryUI(inAppHint) {
+        if (!stillOnBridgePage()) return;
+        var loading = document.querySelector(".loading");
+        if (loading) loading.style.display = "none";
+
+        var existing = document.querySelector(".ios-recovery");
+        if (existing) return;
+
+        var firstTap = document.getElementById("bridge-tap-primary");
+        if (firstTap) firstTap.style.display = "none";
+
+        var wrap = document.createElement("div");
+        wrap.className = "ios-recovery";
+        wrap.setAttribute(
+          "style",
+          [
+            "box-sizing:border-box",
+            "padding:1rem 1.25rem 2rem",
+            "font-family:system-ui,sans-serif",
+            "max-width:28rem",
+            "margin:0 auto",
+          ].join(";")
+        );
+
+        var title = document.createElement("p");
+        title.style.cssText =
+          "margin:0 0 0.75rem;font-weight:600;color:#1a1a1a;font-size:1.05rem";
+        title.textContent = "Open this product";
+
+        var hint = document.createElement("p");
+        hint.style.cssText = "margin:0 0 1rem;font-size:0.9rem;color:#555;line-height:1.45";
+        hint.textContent = inAppHint
+          ? "This screen opened inside another app’s browser. Universal Links often don’t work here — use a button below, or open this page in Safari (Share → Open in Safari)."
+          : "If the app or website didn’t open automatically, use one of the links below.";
+
+        wrap.appendChild(title);
+        wrap.appendChild(hint);
+
+        function addButton(href, label, primary) {
+          var a = document.createElement("a");
+          a.href = href;
+          a.textContent = label;
+          a.setAttribute(
+            "style",
+            [
+              "display:block",
+              "box-sizing:border-box",
+              "padding:0.85rem 1rem",
+              "margin-bottom:0.6rem",
+              "border-radius:10px",
+              "text-align:center",
+              "text-decoration:none",
+              "font-weight:600",
+              "font-size:0.95rem",
+              primary
+                ? "background:#0b57d0;color:#fff"
+                : "background:#fff;color:#0b57d0;border:1px solid #c7d2f0",
+            ].join(";")
+          );
+          wrap.appendChild(a);
+        }
+
+        addButton(CONFIG.productWebUrl, "Open product page (website)", true);
+
+        var canonical =
+          "https://rawabihypermarket.com/product/" + encodeURIComponent(CONFIG.productId);
+        if (canonical !== CONFIG.productWebUrl.split("?")[0]) {
+          addButton(
+            canonical,
+            "Open product (alternate link)",
+            false
+          );
+        }
+
+        addButton(
+          "rawabi://product/" + encodeURIComponent(CONFIG.productId),
+          "Open in Rawabi app (deep link)",
+          false
+        );
+
+        addButton(itmsAppStoreUrl(), "App Store — Rawabi Shopping", false);
+        addButton(CONFIG.appStoreUrl, "App Store (in browser)", false);
+
+        var copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.textContent = "Copy product link";
+        copyBtn.setAttribute(
+          "style",
+          [
+            "display:block",
+            "width:100%",
+            "margin-top:0.75rem",
+            "padding:0.65rem",
+            "font:inherit",
+            "border-radius:8px",
+            "border:1px solid #ccc",
+            "background:#f0f0f0",
+            "cursor:pointer",
+          ].join(";")
+        );
+        copyBtn.addEventListener("click", function () {
+          var url = CONFIG.productWebUrl;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(
+              function () {
+                copyBtn.textContent = "Copied";
+              },
+              function () {
+                window.prompt("Copy this link:", url);
+              }
+            );
+          } else {
+            window.prompt("Copy this link:", url);
+          }
+        });
+        wrap.appendChild(copyBtn);
+
+        document.body.appendChild(wrap);
+      }
+
+      function scheduleIOS(ua) {
         var productUrl = CONFIG.productWebUrl;
         var pageHidden = false;
         document.addEventListener(
@@ -301,21 +454,41 @@
           { once: true }
         );
 
-        installTapToOpen(productUrl, "Tap to open product (opens app if installed)");
+        var inApp = isIOSInAppBrowser(ua);
 
-        window.location.replace(productUrl);
+        installTapToOpen(
+          productUrl,
+          "Tap to open product (Safari / app if installed)"
+        );
+
+        if (inApp) {
+          openIOSCustomSchemes();
+          setTimeout(function () {
+            if (!stillOnBridgePage() || pageHidden) return;
+            try {
+              window.location.replace(productUrl);
+            } catch (e) {}
+          }, 380);
+        } else {
+          try {
+            window.location.replace(productUrl);
+          } catch (e) {}
+        }
 
         setTimeout(function () {
           if (!stillOnBridgePage() || pageHidden) return;
-          openIOSDeepLinks();
+          tryAlternateHttpsUrl();
+        }, CONFIG.iosHttpsAltDelayMs);
+
+        setTimeout(function () {
+          if (!stillOnBridgePage() || pageHidden) return;
+          openIOSCustomSchemes();
         }, CONFIG.iosCustomSchemeDelayMs);
 
-        if (CONFIG.iosOpenAppStoreIfStillHere) {
-          setTimeout(function () {
-            if (!stillOnBridgePage() || pageHidden) return;
-            window.location.replace(store);
-          }, CONFIG.iosAppStoreDelayMs);
-        }
+        setTimeout(function () {
+          if (!stillOnBridgePage() || pageHidden) return;
+          showIOSRecoveryUI(inApp);
+        }, CONFIG.iosRecoveryUiDelayMs);
       }
 
       function scheduleAndroid(intentHttps, intentRawabi) {
@@ -356,7 +529,7 @@
       }
 
       if (isIOS(ua)) {
-        scheduleIOS();
+        scheduleIOS(ua);
       }
     })();
   </script>
