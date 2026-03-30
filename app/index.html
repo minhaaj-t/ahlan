@@ -3,126 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ahlan — Get the app</title>
+  <title>Ahlan — Redirecting…</title>
   <style>
-    :root {
-      --bg: #0f1419;
-      --text: #f2f4f7;
-      --muted: #9aa5b1;
-      --accent: #c9a227;
-    }
-    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100dvh;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      background: #0f1419;
+      color: #9aa5b1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
       -webkit-font-smoothing: antialiased;
     }
-    .landing {
-      display: none;
-      min-height: 100dvh;
-      padding: 1.5rem;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1.75rem;
-      text-align: center;
-    }
-    .landing.is-visible { display: flex; }
-    .brand {
-      font-size: clamp(1.75rem, 5vw, 2.25rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--text);
-    }
-    .brand span { color: var(--accent); }
-    .tagline {
-      max-width: 300px;
-      font-size: 0.95rem;
-      line-height: 1.5;
-      color: var(--muted);
-      margin: -0.5rem 0 0;
-    }
-    .actions {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-      width: 100%;
-      max-width: 320px;
-    }
-    /* Official badges only — do not crop, stretch, or recolor (Apple & Google guidelines). */
-    .store-badge {
-      display: block;
-      line-height: 0;
-      text-decoration: none;
-      border-radius: 8px;
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-    .store-badge:active {
-      transform: scale(0.98);
-      opacity: 0.92;
-    }
-    .store-badge:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 4px;
-    }
-    .store-badge img {
-      display: block;
-      height: 54px;
-      width: auto;
-      max-width: min(100%, 280px);
-    }
-    .btn-ghost {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      padding: 0 1.25rem;
-      margin-top: 0.25rem;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      text-decoration: none;
-      color: var(--muted);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: transparent;
-      cursor: pointer;
-      transition: color 0.15s ease, border-color 0.15s ease;
-    }
-    .btn-ghost:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    .btn-ghost:active { color: var(--text); }
+    a { color: #c9a227; }
+    .links { margin-top: 1rem; font-size: 0.9rem; line-height: 1.8; }
   </style>
   <script>
     (function () {
+      var PLAY =
+        "https://play.google.com/store/apps/details?id=com.nipuna.loyalty&hl=en";
+      var APP_STORE =
+        "https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046";
       var WEB = "https://rawabihypermarket.com/ahlan_reward";
       var ua = navigator.userAgent;
-      var isAndroid = /android/i.test(ua);
-      var isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-      function onReady(fn) {
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", fn);
-        } else fn();
-      }
-
-      if (isAndroid) {
-        onReady(function () {
-          var el = document.getElementById("android-landing");
-          el.classList.add("is-visible");
-          el.setAttribute("aria-hidden", "false");
-        });
-      } else if (isIOS) {
-        onReady(function () {
-          var el = document.getElementById("ios-landing");
-          el.classList.add("is-visible");
-          el.setAttribute("aria-hidden", "false");
-        });
+      var isIPadOS =
+        navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+      if (/android/i.test(ua)) {
+        window.location.replace(PLAY);
+      } else if (/iPhone|iPad|iPod/i.test(ua) || isIPadOS) {
+        window.location.replace(APP_STORE);
       } else {
         window.location.replace(WEB);
       }
@@ -130,92 +42,24 @@
   </script>
 </head>
 <body>
+  <div>
+    <p>Redirecting…</p>
+    <p class="links">
+      <a href="https://play.google.com/store/apps/details?id=com.nipuna.loyalty&amp;hl=en">Google Play</a>
+      ·
+      <a href="https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046">App Store</a>
+      ·
+      <a href="https://rawabihypermarket.com/ahlan_reward">Website</a>
+    </p>
+  </div>
   <noscript>
-    <p style="padding:1rem;color:#fff;">
-      <a href="https://rawabihypermarket.com/ahlan_reward">Continue to Ahlan Reward</a>
+    <p>
+      <a href="https://play.google.com/store/apps/details?id=com.nipuna.loyalty&amp;hl=en">Google Play</a>
+      |
+      <a href="https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046">App Store</a>
+      |
+      <a href="https://rawabihypermarket.com/ahlan_reward">Website</a>
     </p>
   </noscript>
-
-  <!--
-    App Store badge: Apple Marketing Resources (SVG via tools.applemediaservices.com).
-    Google Play badge: https://play.google.com/intl/en_us/badges/
-  -->
-
-  <div id="android-landing" class="landing" aria-hidden="true">
-    <div>
-      <p class="brand">Ahlan <span>Rawabi</span></p>
-      <p class="tagline">Get the loyalty app on your device.</p>
-    </div>
-    <div class="actions">
-      <a
-        class="store-badge"
-        href="https://play.google.com/store/apps/details?id=com.nipuna.loyalty&amp;hl=en"
-        rel="noopener noreferrer"
-        aria-label="Get it on Google Play"
-      >
-        <img
-          src="/app/badges/google-play-en.png"
-          alt="Get it on Google Play"
-          width="646"
-          height="250"
-          decoding="async"
-        />
-      </a>
-      <a
-        class="store-badge"
-        href="https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046"
-        rel="noopener noreferrer"
-        aria-label="Download on the App Store"
-      >
-        <img
-          src="/app/badges/app-store-en.svg"
-          alt="Download on the App Store"
-          width="120"
-          height="40"
-          decoding="async"
-        />
-      </a>
-      <a class="btn-ghost" href="https://rawabihypermarket.com/ahlan_reward" rel="noopener noreferrer">Continue on website</a>
-    </div>
-  </div>
-
-  <div id="ios-landing" class="landing" aria-hidden="true">
-    <div>
-      <p class="brand">Ahlan <span>Rawabi</span></p>
-      <p class="tagline">Get the loyalty app on your device.</p>
-    </div>
-    <div class="actions">
-      <a
-        class="store-badge"
-        href="https://apps.apple.com/qa/app/ahlan-rawabi/id6449727046"
-        rel="noopener noreferrer"
-        aria-label="Download on the App Store"
-      >
-        <img
-          src="/app/badges/app-store-en.svg"
-          alt="Download on the App Store"
-          width="120"
-          height="40"
-          decoding="async"
-        />
-      </a>
-      <a
-        class="store-badge"
-        href="https://play.google.com/store/apps/details?id=com.nipuna.loyalty&amp;hl=en"
-        rel="noopener noreferrer"
-        aria-label="Get it on Google Play"
-      >
-        <img
-          src="/app/badges/google-play-en.png"
-          alt="Get it on Google Play"
-          width="646"
-          height="250"
-          decoding="async"
-        />
-      </a>
-      <a class="btn-ghost" href="https://rawabihypermarket.com/ahlan_reward" rel="noopener noreferrer">Continue on website</a>
-    </div>
-  </div>
-
 </body>
 </html>
